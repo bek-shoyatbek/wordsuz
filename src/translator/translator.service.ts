@@ -6,10 +6,12 @@ import { ConfigService } from '@nestjs/config';
 import { lastValueFrom, map } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { MyMemoryResponse } from 'src/interfaces/my-memory-response.interface';
+import { createClient } from 'pexels';
 
 @Injectable()
 export class TranslatorService {
   private readonly myMemoryApiUrl: string;
+
   constructor(
     private dictionaryService: DictionaryService,
     private prisma: PrismaService,
