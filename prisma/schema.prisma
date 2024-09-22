@@ -6,33 +6,47 @@ generator client {
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model Word {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  englishWord String    @unique
-  meanings    Meaning[]
-  examples    Example[]
-  comments    Comment[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id       Int       @id @default(autoincrement())
+  english  String    @unique
+  uzbek    String
+  meanings Meaning[]
+  examples Example[]
+  comments Comment[]
 }
 
-type Meaning {
-  uzbekMeaning String
-  partOfSpeech String?
+model Meaning {
+  id       Int       @id @default(autoincrement())
+  wordId   Int
+  word     Word      @relation(fields: [wordId], references: [id])
+  text     String
+  examples Example[]
+  Comment  Comment[]
 }
 
-type Example {
-  englishSentence String
-  uzbekSentence   String
+model Example {
+  id        Int       @id @default(autoincrement())
+  wordId    Int?
+  word      Word?     @relation(fields: [wordId], references: [id])
+  meaningId Int?
+  meaning   Meaning?  @relation(fields: [meaningId], references: [id])
+  text      String
+  comments  Comment[]
 }
 
-type Comment {
-  id        String
-  content   String
-  userName  String
+model Comment {
+  id        Int      @id @default(autoincrement())
+  wordId    Int?
+  word      Word?    @relation(fields: [wordId], references: [id])
+  meaningId Int?
+  meaning   Meaning? @relation(fields: [meaningId], references: [id])
+  exampleId Int?
+  example   Example? @relation(fields: [exampleId], references: [id])
+  text      String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
