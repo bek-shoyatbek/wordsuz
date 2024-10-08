@@ -1,110 +1,114 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { DictionaryService } from 'src/dictionary/dictionary.service';
-import { WordDefinition } from 'src/interfaces/word-definition.interface';
-import { ConfigService } from '@nestjs/config';
-import { lastValueFrom, map } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
-import { MyMemoryResponse } from 'src/interfaces/my-memory-response.interface';
-import { createClient } from 'pexels';
+import { ConfigService } from '@nestjs/config';
+import { lastValueFrom } from 'rxjs';
+import { WordResponse } from 'src/word/interfaces/word-response.interface';
 
 @Injectable()
 export class TranslatorService {
-  private readonly myMemoryApiUrl: string;
+  private readonly apiKey: string;
+  private readonly apiHost: string;
+  private readonly apiUrl: string;
 
   constructor(
-    private dictionaryService: DictionaryService,
-    private prisma: PrismaService,
-    private configService: ConfigService,
-    private httpService: HttpService,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
   ) {
-    this.myMemoryApiUrl = this.configService.get('MY_MEMORY_API_URL');
+    this.apiKey = this.configService.get<string>('TRANSLATOR_API_KEY');
+    this.apiHost = 'google-translator9.p.rapidapi.com';
+    this.apiUrl = 'https://google-translator9.p.rapidapi.com/v2';
   }
 
-  async translateWord(word: string): Promise<any> {
-    const wordDefinition = await this.dictionaryService
-      .getWordDefinition(word)
-      .toPromise();
-
-    if (!wordDefinition || wordDefinition.length === 0) {
-      throw new Error('Word not found');
-    }
-
-    const existingWord = await this.prisma.word.findUnique({
-      where: { english: word },
-      include: { meanings: { include: { examples: true } } },
-    });
-
-    if (existingWord) {
-      return this.formatTranslation(existingWord, wordDefinition[0]);
-    }
-
-    // If the word doesn't exist, create it with translations from MyMemory API
-    const uzbekTranslation = await this.translateWithMyMemory(word);
-    const newWord = await this.prisma.word.create({
-      data: {
-        english: wordDefinition[0].word,
-        uzbek: uzbekTranslation,
-        meanings: {
-          create: await Promise.all(
-            wordDefinition[0].meanings.map(async (meaning) => ({
-              text: await this.translateWithMyMemory(
-                meaning.definitions[0].definition,
-              ),
-              examples: {
-                create: await Promise.all(
-                  meaning.definitions
-                    .filter((def) => def.example)
-                    .map(async (def) => ({
-                      text: await this.translateWithMyMemory(def.example),
-                    })),
-                ),
-              },
-            })),
-          ),
-        },
+  async translate(
+    text: string,
+    sourceLanguage: string,
+    targetLanguage: string,
+  ): Promise<string> {
+    const options = {
+      method: 'POST',
+      url: this.apiUrl,
+      headers: {
+        'x-rapidapi-key': this.apiKey,
+        'x-rapidapi-host': this.apiHost,
+        'Content-Type': 'application/json',
       },
-      include: { meanings: { include: { examples: true } } },
-    });
-
-    return this.formatTranslation(newWord, wordDefinition[0]);
-  }
-
-  private async translateWithMyMemory(text: string): Promise<string> {
-    const encodedText = encodeURIComponent(text);
-    const url = `${this.myMemoryApiUrl}?q=${encodedText}&langpair=en|uz`;
+      data: {
+        q: text,
+        source: sourceLanguage,
+        target: targetLanguage,
+        format: 'text',
+      },
+    };
 
     try {
-      const response = await lastValueFrom(
-        this.httpService
-          .get<MyMemoryResponse>(url)
-          .pipe(map((response) => response.data)),
-      );
-
-      return response.responseData.translatedText;
+      const response = await lastValueFrom(this.httpService.request(options));
+      return response.data.data.translations[0].translatedText;
     } catch (error) {
       console.error('Translation error:', error);
-      return 'Translation error';
+      throw new Error('Failed to translate text');
     }
   }
-  private formatTranslation(dbWord: any, apiWord: WordDefinition) {
-    return {
-      word: dbWord.english,
-      uzbekTranslation: dbWord.uzbek,
-      phonetic: apiWord.phonetic,
-      origin: apiWord.origin,
-      meanings: apiWord.meanings.map((meaning, index) => ({
-        partOfSpeech: meaning.partOfSpeech,
-        definitions: meaning.definitions.map((def) => ({
-          definition: def.definition,
-          example: def.example,
-          uzMeaning: dbWord.meanings[index]?.text || 'Translation needed',
-          uzExample:
-            dbWord.meanings[index]?.examples.find(
-              (e: { text: string }) => e.text === def.example,
-            )?.text || 'Translation needed',
-        })),
-      })),
+
+  prepareTranslationString(result: WordResponse): string {
+    let translationString = `${result.word || ''}\n`;
+    if (result.results && Array.isArray(result.results)) {
+      result.results
+        .slice(0, Math.min(6, result.results.length))
+        .forEach((item, index) => {
+          if (item) {
+            translationString += `${index}:${item.definition || ''}\n`;
+            translationString += `${index}p:${item.partOfSpeech || ''}\n`;
+            if (item.synonyms && Array.isArray(item.synonyms)) {
+              item.synonyms
+                .slice(0, Math.min(6, item.synonyms.length))
+                .forEach((synonym, synIndex) => {
+                  translationString += `${index}s${synIndex}:${synonym}\n`;
+                });
+            }
+            if (item.examples && Array.isArray(item.examples)) {
+              item.examples
+                .slice(0, Math.min(10, item.examples.length))
+                .forEach((example, exIndex) => {
+                  translationString += `${index}e${exIndex}:${example}\n`;
+                });
+            }
+          }
+        });
+    }
+    return translationString.trim();
+  }
+
+  parseTranslatedString(translatedString: string) {
+    const lines = translatedString.split('\n');
+    const uzbekData: any = {
+      word: lines[0],
+      translations: [],
     };
+
+    let currentTranslation: any = {};
+    lines.slice(1).forEach((line) => {
+      const [key, value] = line.split(':');
+      if (key.length === 1) {
+        if (currentTranslation.definition) {
+          uzbekData.translations.push(currentTranslation);
+        }
+        currentTranslation = {
+          definition: value,
+          synonyms: [],
+          examples: [],
+        };
+      } else if (key.endsWith('p')) {
+        currentTranslation.partOfSpeech = value;
+      } else if (key.includes('s')) {
+        currentTranslation.synonyms.push(value);
+      } else if (key.includes('e')) {
+        currentTranslation.examples.push(value);
+      }
+    });
+    if (currentTranslation.definition) {
+      uzbekData.translations.push(currentTranslation);
+    }
+
+    return uzbekData;
   }
 }
