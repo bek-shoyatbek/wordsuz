@@ -107,12 +107,4 @@ export class WordService {
     return options;
   }
 
-  private async translateToUzbek(text: string): Promise<string> {
-    try {
-      return await this.translator.translate(text, 'en', 'uz');
-    } catch (error) {
-      console.error('Translation error:', error);
-      return `Translation failed: ${text}`;
-    }
-  }
 }
