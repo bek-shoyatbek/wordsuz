@@ -2,7 +2,35 @@ import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { lastValueFrom } from 'rxjs';
-import { WordResponse } from 'src/word/interfaces/word-response.interface';
+// import { WordResponse } from 'src/word/interfaces/word-response.interface';
+
+export interface WordResponseResult {
+  definition: string;
+  partOfSpeech: string;
+  synonyms: string[];
+  typeOf: string[];
+  examples: string[];
+
+  hasTypes?: string[];
+  verbGroup?: string[];
+  derivation?: string[];
+  antonyms?: string[];
+}
+
+export interface WordSyllables {
+  count: number;
+  list: string[];
+}
+export interface WordResponse {
+  word: string;
+  results: WordResponseResult[];
+  syllables?: WordSyllables;
+  pronounciation?: {
+    ['key']: any;
+  };
+  frequency: number;
+}
+
 
 @Injectable()
 export class TranslatorService {
