@@ -32,7 +32,7 @@ export class WordService {
       const result: WordResponse = response.data;
 
       // Prepare a single string for translation
-      const toTranslate = this.translator.prepareTranslationString(result);
+      const toTranslate = await this.translator.prepareTranslationString(result);
       // Translate the entire string at once
       const translatedString = await this.translator.translate(
         toTranslate,

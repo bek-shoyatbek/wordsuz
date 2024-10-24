@@ -2,35 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { lastValueFrom } from 'rxjs';
-// import { WordResponse } from 'src/word/interfaces/word-response.interface';
-
-export interface WordResponseResult {
-  definition: string;
-  partOfSpeech: string;
-  synonyms: string[];
-  typeOf: string[];
-  examples: string[];
-
-  hasTypes?: string[];
-  verbGroup?: string[];
-  derivation?: string[];
-  antonyms?: string[];
-}
-
-export interface WordSyllables {
-  count: number;
-  list: string[];
-}
-export interface WordResponse {
-  word: string;
-  results: WordResponseResult[];
-  syllables?: WordSyllables;
-  pronounciation?: {
-    ['key']: any;
-  };
-  frequency: number;
-}
-
+import { WordResponse } from 'src/word/interfaces/word-response.interface';
 
 @Injectable()
 export class TranslatorService {
@@ -77,31 +49,41 @@ export class TranslatorService {
     }
   }
 
-  prepareTranslationString(result: WordResponse): string {
+  async prepareTranslationString(result: WordResponse): Promise<string> {
     let translationString = `${result.word || ''}\n`;
     if (result.results && Array.isArray(result.results)) {
-      result.results
+      for (const [index, item] of result.results
         .slice(0, Math.min(6, result.results.length))
-        .forEach((item, index) => {
-          if (item) {
-            translationString += `${index}:${item.definition || ''}\n`;
-            translationString += `${index}p:${item.partOfSpeech || ''}\n`;
-            if (item.synonyms && Array.isArray(item.synonyms)) {
-              item.synonyms
-                .slice(0, Math.min(6, item.synonyms.length))
-                .forEach((synonym, synIndex) => {
-                  translationString += `${index}s${synIndex}:${synonym}\n`;
-                });
-            }
-            if (item.examples && Array.isArray(item.examples)) {
-              item.examples
-                .slice(0, Math.min(10, item.examples.length))
-                .forEach((example, exIndex) => {
-                  translationString += `${index}e${exIndex}:${example}\n`;
-                });
+        .entries()) {
+        if (item) {
+          translationString += `${index}:${item.definition || ''}\n`;
+          translationString += `${index}p:${item.partOfSpeech || ''}\n`;
+          
+          if (item.synonyms && Array.isArray(item.synonyms)) {
+            item.synonyms
+              .slice(0, Math.min(6, item.synonyms.length))
+              .forEach((synonym, synIndex) => {
+                translationString += `${index}s${synIndex}:${synonym}\n`;
+              });
+          }
+          
+          if (item.examples && Array.isArray(item.examples)) {
+            for (const [exIndex, example] of item.examples
+              .slice(0, Math.min(10, item.examples.length))
+              .entries()) {
+              // Store both original and translated examples
+              translationString += `${index}e${exIndex}:${example}\n`;
+              try {
+                const translatedExample = await this.translate(example, 'en', 'uz');
+                translationString += `${index}et${exIndex}:${translatedExample}\n`;
+              } catch (error) {
+                console.error(`Failed to translate example: ${example}`, error);
+                translationString += `${index}et${exIndex}:${example}\n`; // Fallback to original if translation fails
+              }
             }
           }
-        });
+        }
+      }
     }
     return translationString.trim();
   }
@@ -114,10 +96,17 @@ export class TranslatorService {
     };
 
     let currentTranslation: any = {};
+    let currentExamples: { original: string; translated: string }[] = [];
+
     lines.slice(1).forEach((line) => {
-      const [key, value] = line.split(':');
+      const [key, ...valueParts] = line.split(':');
+      const value = valueParts.join(':'); // Rejoin in case the value contains colons
+
       if (key.length === 1) {
         if (currentTranslation.definition) {
+          if (currentExamples.length > 0) {
+            currentTranslation.examples = currentExamples;
+          }
           uzbekData.translations.push(currentTranslation);
         }
         currentTranslation = {
@@ -125,15 +114,35 @@ export class TranslatorService {
           synonyms: [],
           examples: [],
         };
+        currentExamples = [];
       } else if (key.endsWith('p')) {
         currentTranslation.partOfSpeech = value;
       } else if (key.includes('s')) {
         currentTranslation.synonyms.push(value);
       } else if (key.includes('e')) {
-        currentTranslation.examples.push(value);
+        if (key.includes('et')) {
+          // This is a translated example
+          const exampleIndex = parseInt(key.match(/\d+/)[0]);
+          if (!currentExamples[exampleIndex]) {
+            currentExamples[exampleIndex] = { original: '', translated: '' };
+          }
+          currentExamples[exampleIndex].translated = value;
+        } else {
+          // This is an original example
+          const exampleIndex = parseInt(key.match(/\d+/)[0]);
+          if (!currentExamples[exampleIndex]) {
+            currentExamples[exampleIndex] = { original: '', translated: '' };
+          }
+          currentExamples[exampleIndex].original = value;
+        }
       }
     });
+
+    // Add the last translation if it exists
     if (currentTranslation.definition) {
+      if (currentExamples.length > 0) {
+        currentTranslation.examples = currentExamples;
+      }
       uzbekData.translations.push(currentTranslation);
     }
 
