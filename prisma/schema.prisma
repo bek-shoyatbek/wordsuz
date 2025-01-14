@@ -1,51 +1,89 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgres"
   url      = env("DATABASE_URL")
 }
 
-model Word {
-  id       Int       @id @default(autoincrement())
-  english  String    @unique
-  uzbek    String
-  meanings Meaning[]
-  examples Example[]
-  comments Comment[]
+model Prefix {
+  id         Int    @id @default(autoincrement())
+  title      String
+  definition String
 }
 
-model Meaning {
-  id       Int       @id @default(autoincrement())
+model Word {
+  id               Int               @id @default(autoincrement())
+  title            String            @unique
+  transcription    String?
+  usageFrequency   Int?
+  definitions      Definition[]
+  exampleSentences ExampleSentence[]
+  verbForms        VerbForm[]
+  anagrams         String[]
+}
+
+model Definition {
+  id       Int            @id @default(autoincrement())
   wordId   Int
-  word     Word      @relation(fields: [wordId], references: [id])
-  text     String
+  word     Word           @relation(fields: [wordId], references: [id])
+  typeEn   String
+  typeUz   String
+  meaning  String
+  plural   String?
+  others   OtherMeaning[]
+  synonyms String[]
   examples Example[]
-  Comment  Comment[]
+}
+
+model OtherMeaning {
+  id           Int        @id @default(autoincrement())
+  definitionId Int
+  definition   Definition @relation(fields: [definitionId], references: [id])
+  meaning      String
+  examples     Example[]
 }
 
 model Example {
-  id        Int       @id @default(autoincrement())
-  wordId    Int?
-  word      Word?     @relation(fields: [wordId], references: [id])
-  meaningId Int?
-  meaning   Meaning?  @relation(fields: [meaningId], references: [id])
-  text      String
-  comments  Comment[]
+  id             Int           @id @default(autoincrement())
+  definitionId   Int?
+  definition     Definition?   @relation(fields: [definitionId], references: [id])
+  otherMeaningId Int?
+  otherMeaning   OtherMeaning? @relation(fields: [otherMeaningId], references: [id])
+  phrase         String
+  translation    String
+}
+
+model ExampleSentence {
+  id          Int    @id @default(autoincrement())
+  wordId      Int
+  word        Word   @relation(fields: [wordId], references: [id])
+  sentence    String
+  translation String
+}
+
+model VerbForm {
+  id      Int    @id @default(autoincrement())
+  wordId  Int
+  word    Word   @relation(fields: [wordId], references: [id])
+  tense   String
+  content Json // Store the nested verb form content as JSON
+}
+
+model IrregularVerb {
+  id             Int    @id @default(autoincrement())
+  baseForm       String
+  pastSimple     String
+  pastParticiple String
+  meaning        String
 }
 
 model Comment {
   id        Int      @id @default(autoincrement())
-  wordId    Int?
-  word      Word?    @relation(fields: [wordId], references: [id])
-  meaningId Int?
-  meaning   Meaning? @relation(fields: [meaningId], references: [id])
-  exampleId Int?
-  example   Example? @relation(fields: [exampleId], references: [id])
+  date      String
+  time      String
+  user      String
   text      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
