@@ -8,25 +8,25 @@ datasource db {
 }
 
 model Prefix {
-  id         Int    @id @default(autoincrement())
+  id         String @id @default(uuid())
   title      String
   definition String
 }
 
 model Word {
-  id               Int               @id @default(autoincrement())
+  id               String            @id @default(uuid())
   title            String            @unique
   transcription    String?
-  usageFrequency   Int?
   definitions      Definition[]
+  usageFrequency   Int?
   exampleSentences ExampleSentence[]
   verbForms        VerbForm[]
   anagrams         String[]
 }
 
 model Definition {
-  id       Int            @id @default(autoincrement())
-  wordId   Int
+  id       String         @id @default(uuid())
+  wordId   String
   word     Word           @relation(fields: [wordId], references: [id])
   typeEn   String
   typeUz   String
@@ -38,41 +38,41 @@ model Definition {
 }
 
 model OtherMeaning {
-  id           Int        @id @default(autoincrement())
-  definitionId Int
+  id           String     @id @default(uuid())
+  definitionId String
   definition   Definition @relation(fields: [definitionId], references: [id])
   meaning      String
   examples     Example[]
 }
 
 model Example {
-  id             Int           @id @default(autoincrement())
-  definitionId   Int?
+  id             String        @id @default(uuid())
+  definitionId   String?
   definition     Definition?   @relation(fields: [definitionId], references: [id])
-  otherMeaningId Int?
+  otherMeaningId String?
   otherMeaning   OtherMeaning? @relation(fields: [otherMeaningId], references: [id])
   phrase         String
   translation    String
 }
 
 model ExampleSentence {
-  id          Int    @id @default(autoincrement())
-  wordId      Int
+  id          String @id @default(uuid())
+  wordId      String
   word        Word   @relation(fields: [wordId], references: [id])
   sentence    String
   translation String
 }
 
 model VerbForm {
-  id      Int    @id @default(autoincrement())
-  wordId  Int
+  id      String @id @default(uuid())
+  wordId  String
   word    Word   @relation(fields: [wordId], references: [id])
   tense   String
-  content Json // Store the nested verb form content as JSON
+  content Json
 }
 
 model IrregularVerb {
-  id             Int    @id @default(autoincrement())
+  id             String @id @default(uuid())
   baseForm       String
   pastSimple     String
   pastParticiple String
@@ -80,7 +80,7 @@ model IrregularVerb {
 }
 
 model Comment {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   date      String
   time      String
   user      String
