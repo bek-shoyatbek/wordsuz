@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { lastValueFrom } from 'rxjs';
-import { WordResponse } from 'src/word/interfaces/word-response.interface';
+import { WordResponse } from 'src/word/types/word-response.interface';
 
 @Injectable()
 export class TranslatorService {
@@ -58,7 +58,7 @@ export class TranslatorService {
         if (item) {
           translationString += `${index}:${item.definition || ''}\n`;
           translationString += `${index}p:${item.partOfSpeech || ''}\n`;
-          
+
           if (item.synonyms && Array.isArray(item.synonyms)) {
             item.synonyms
               .slice(0, Math.min(6, item.synonyms.length))
@@ -66,7 +66,7 @@ export class TranslatorService {
                 translationString += `${index}s${synIndex}:${synonym}\n`;
               });
           }
-          
+
           if (item.examples && Array.isArray(item.examples)) {
             for (const [exIndex, example] of item.examples
               .slice(0, Math.min(10, item.examples.length))

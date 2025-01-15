@@ -3,8 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosRequestConfig } from 'axios';
 import { lastValueFrom } from 'rxjs';
-import { WordResponse } from './interfaces/word-response.interface';
 import { TranslatorService } from 'src/translator/translator.service';
+import { WordDetails } from './types';
 
 @Injectable()
 export class WordService {
@@ -29,7 +29,7 @@ export class WordService {
       const response = await lastValueFrom(
         this.httpService.request(reqOptions),
       );
-      const result: WordResponse = response.data;
+      const result: WordDetails = response.data;
 
       // Prepare a single string for translation
       const toTranslate = await this.translator.prepareTranslationString(result);
