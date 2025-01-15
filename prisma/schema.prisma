@@ -7,78 +7,125 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id       String @id @default(uuid())
+  email    String
+  username String
+
+  comments  Comment[]
+  bookmarks Bookmark[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Bookmark {
+  id String @id @default(uuid())
+
+  User      User     @relation(fields: [userId], references: [id])
+  userId    String   @map("user_id")
+  Word      Word?    @relation(fields: [wordId], references: [id])
+  wordId    String?  @map("word_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("bookmarks")
+}
+
 model Word {
-  id               String            @id @default(uuid())
-  title            String            @unique
-  transcription    String?
-  definitions      Definition[]
-  usageFrequency   Int?
-  exampleSentences ExampleSentence[]
-  verbForms        VerbForm[]
-  anagrams         String[]
+  id             String       @id @default(uuid())
+  title          String       @unique
+  transcription  String?
+  definitions    Definition[]
+  usageFrequency Int?         @map("usage_frequency")
+  synonyms       String[]
+  examples       Example[]
+  verbForms      VerbForm[]
+  anagrams       String[]
+  bookmarks      Bookmark[]
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@map("words")
 }
 
 model Definition {
-  id       String         @id @default(uuid())
-  wordId   String
-  word     Word           @relation(fields: [wordId], references: [id])
-  typeEn   String
-  typeUz   String
-  meaning  String
-  plural   String?
-  others   OtherMeaning[]
-  synonyms String[]
-  examples Example[]
+  id      String    @id @default(uuid())
+  wordId  String    @map("word_id")
+  word    Word      @relation(fields: [wordId], references: [id])
+  typeEn  String    @map("type_en")
+  typeUz  String    @map("type_uz")
+  meaning String
+  plural  String?
+  others  Meaning[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("definitions")
 }
 
-model OtherMeaning {
+model Meaning {
   id           String     @id @default(uuid())
-  definitionId String
+  definitionId String     @map("definition_id")
   definition   Definition @relation(fields: [definitionId], references: [id])
   meaning      String
   examples     Example[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("meanings")
 }
 
 model Example {
-  id             String        @id @default(uuid())
-  definitionId   String?
-  definition     Definition?   @relation(fields: [definitionId], references: [id])
-  otherMeaningId String?
-  otherMeaning   OtherMeaning? @relation(fields: [otherMeaningId], references: [id])
+  id             String   @id @default(uuid())
+  otherMeaningId String?  @map("other_meaning_id")
+  otherMeaning   Meaning? @relation(fields: [otherMeaningId], references: [id])
   phrase         String
   translation    String
-}
+  Word           Word?    @relation(fields: [wordId], references: [id])
+  wordId         String?  @map("word_id")
+  isVerified     Boolean  @default(true) @map("is_verified")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-model ExampleSentence {
-  id          String @id @default(uuid())
-  wordId      String
-  word        Word   @relation(fields: [wordId], references: [id])
-  sentence    String
-  translation String
+  @@map("examples")
 }
 
 model VerbForm {
-  id      String @id @default(uuid())
-  wordId  String
-  word    Word   @relation(fields: [wordId], references: [id])
-  tense   String
-  content Json
+  id        String   @id @default(uuid())
+  wordId    String   @map("word_id")
+  word      Word     @relation(fields: [wordId], references: [id])
+  tense     String
+  content   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("verbforms")
 }
 
 model IrregularVerb {
-  id             String @id @default(uuid())
-  baseForm       String
-  pastSimple     String
-  pastParticiple String
+  id             String   @id @default(uuid())
+  baseForm       String   @map("base_form")
+  pastSimple     String   @map("past_simple")
+  pastParticiple String   @map("past_participle")
   meaning        String
+  isVerified     Boolean  @map("is_verified")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("irregular_verbs")
 }
 
 model Comment {
   id        String   @id @default(uuid())
-  date      String
-  time      String
-  user      String
   text      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  User      User     @relation(fields: [userId], references: [id])
+  userId    String   @map("user_id")
+
+  @@map("comments")
 }
