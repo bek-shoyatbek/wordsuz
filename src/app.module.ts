@@ -4,8 +4,8 @@ import { AppService } from './app.service';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 import { PexelsModule } from './pexels/pexels.module';
-import { WordModule } from './word/word.module';
-import { TranslatorModule } from './translator/translator.module';
+import { WordModule } from './words/words.module';
+import { TranslatorsModule } from './translators/translators.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 
@@ -17,7 +17,7 @@ import { join } from 'path';
     }),
     PexelsModule,
     WordModule,
-    TranslatorModule,
+    TranslatorsModule,
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'frontend'),
       exclude: ['api/*'],

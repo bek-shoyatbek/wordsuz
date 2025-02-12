@@ -29,6 +29,7 @@
     "@nestjs/serve-static": "^4.0.2",
     "@prisma/client": "^5.19.1",
     "axios": "^1.7.7",
+    "envalid": "^8.0.0",
     "pexels": "^1.4.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1"
