@@ -26,8 +26,13 @@ export class WordsService {
 
     const apiResponse = await this.getWordDetails(word);
 
-    return this.transformWordResponse(apiResponse);
+    const toTranslate = await this.translator.prepareTranslationString(apiResponse);
 
+    const translatedString = await this.translator.translate(toTranslate, 'en', 'uz');
+
+    const uzbekData = this.translator.parseTranslatedString(translatedString);
+
+    return this.transformToFinalFormat(apiResponse, uzbekData);
   }
 
   private async getWordDetails(word: string) {
@@ -56,60 +61,60 @@ export class WordsService {
     return options;
   }
 
-  private transformWordResponse(apiResponse: WordApiResponse) {
-    const {
-      word,
-      results,
-      pronunciation,
-      frequency,
-    } = apiResponse;
+  private transformToFinalFormat(apiResponse: WordApiResponse, uzbekData: any) {
+    const uniqueSynonyms = Array.from(new Set(
+      apiResponse.results?.flatMap(result => result.synonyms || []) || []
+    ));
 
-    const definitionsByType = results.reduce((acc, curr) => {
-      if (!acc[curr.partOfSpeech]) {
-        acc[curr.partOfSpeech] = [];
+    const definitions = apiResponse.results?.map((result, index) => {
+      const uzTranslation = uzbekData.translations[index];
+
+      return {
+        typeEn: result.partOfSpeech,
+        typeUz: uzTranslation?.partOfSpeech || '',
+        meaning: uzTranslation?.definition || '',
+        plural: '',
+        others: result.examples?.map((example, i) => ({
+          meaning: uzTranslation?.examples?.[i]?.translated || '',
+          examples: [{
+            phrase: example,
+            translation: uzTranslation?.examples?.[i]?.translated || ''
+          }]
+        })) || []
+      };
+    }) || [];
+
+    const examples = apiResponse.results?.flatMap(result =>
+      (result.examples || []).map(example => ({
+        phrase: example,
+        translation: ''
+      }))
+    ) || [];
+
+    examples.forEach((example, index) => {
+      const foundTranslation = uzbekData.translations
+        .flatMap(t => t.examples || [])
+        .find(e => e?.original === example?.phrase);
+
+      if (foundTranslation) {
+        example.translation = foundTranslation?.translated;
       }
-      acc[curr.partOfSpeech].push(curr);
-      return acc;
-    }, {});
+    });
 
-    const hasVerbDefinition = results.some(result => result.partOfSpeech === 'verb');
-
-    const allSynonyms = Array.from(
-      new Set(
-        results
-          .flatMap(result => result.synonyms || [])
-      )
+    const hasVerbDefinition = apiResponse.results?.some(
+      result => result?.partOfSpeech === 'verb'
     );
 
-    const allExamples = results
-      .flatMap(result =>
-        (result.examples || []).map(example => ({
-          phrase: example,
-          translation: ''
-        }))
-      );
-
-    const transformedResponse = {
-      title: word,
-      transcription: pronunciation?.all || '',
-      definitions: Object.entries(definitionsByType).map(([type, defs]) => ({
-        typeEn: type,
-        typeUz: '',
-        meaning: defs[0].definition,
-        plural: '',
-        others: (defs as any).slice(1).map(def => ({
-          meaning: def.definition,
-          examples: []
-        }))
-      })),
-      usageFrequency: Math.round(frequency * 100) || 0,
-      synonyms: allSynonyms,
-      examples: allExamples,
-      verbforms: hasVerbDefinition ? this.generateVerbForms(word) : [],
-      anagrams: []
+    return {
+      title: apiResponse.word,
+      transcription: apiResponse.pronunciation?.all || '',
+      definitions,
+      usageFrequency: Math.round((apiResponse.frequency || 0) * 100),
+      synonyms: uniqueSynonyms,
+      examples,
+      verbforms: hasVerbDefinition ? this.generateVerbForms(apiResponse.word) : [],
+      anagrams: [] // To be implemented if needed
     };
-
-    return transformedResponse;
   }
 
   private generateVerbForms(word: string) {
