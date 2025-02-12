@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { TranslatorService } from './translator.service';
+import { TranslatorsService } from './translators.service';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [HttpModule],
-  providers: [TranslatorService, ConfigService],
+  providers: [TranslatorsService, ConfigService],
 })
-export class TranslatorModule { }
+export class TranslatorsModule { }

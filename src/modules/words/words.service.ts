@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosRequestConfig } from 'axios';
 import { lastValueFrom } from 'rxjs';
-import { TranslatorsService } from 'src/translators/translators.service';
+import { TranslatorsService } from 'src/modules/translators/translators.service';
 import { WordApiResponse } from 'src/shared/types';
 
 @Injectable()

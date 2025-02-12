@@ -3,9 +3,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
-import { PexelsModule } from './pexels/pexels.module';
-import { WordModule } from './words/words.module';
-import { TranslatorsModule } from './translators/translators.module';
+import { PexelsModule } from './modules/pexels/pexels.module';
+import { WordModule } from './modules/words/words.module';
+import { TranslatorsModule } from './modules/translators/translators.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 

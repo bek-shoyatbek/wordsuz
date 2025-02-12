@@ -3,7 +3,7 @@ import { WordsService } from './words.service';
 import { WordsController } from './words.controller';
 import { ConfigService } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
-import { TranslatorsService } from 'src/translators/translators.service';
+import { TranslatorsService } from 'src/modules/translators/translators.service';
 
 @Module({
   imports: [
