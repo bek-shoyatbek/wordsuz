@@ -10,27 +10,28 @@ export type WordDefinition = {
       translation: string;
     }[];
   }[];
-}
+};
 
 export type Content = {
   title: string;
   forms: {
     singular: string;
     plural: string;
-  }[]
-}
+  }[];
+};
 
 export type VerbForm = {
   tense: string;
   content: Content[];
-}
+};
 
 export type Example = {
   phrase: string;
   translation: string;
-}
+};
 
 export type WordDetails = {
+  titleEng?: string;
   title: string;
   transcription: string;
   definitions: WordDefinition[];
@@ -39,12 +40,11 @@ export type WordDetails = {
   examples: Example[];
   verbforms: VerbForm[];
   anagrams: string[];
-}
+};
 
 export type IrregularVerb = {
   baseForm: string;
   pastSimple: string;
   pastParticiple: string;
   meaning: string;
-}
-
+};

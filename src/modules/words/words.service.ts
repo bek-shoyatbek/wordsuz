@@ -1,10 +1,11 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosRequestConfig } from 'axios';
 import { TranslatorsService } from '../translators/translators.service';
 import { WordApiResponse } from 'src/shared/types';
 import { WordDetails } from './types';
+import { DatabaseService } from 'src/shared/database/database.service';
 
 @Injectable()
 export class WordsService {
@@ -16,6 +17,7 @@ export class WordsService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
     private readonly translator: TranslatorsService,
+    private readonly database: DatabaseService,
   ) {
     this.wordsApiURL = this.configService.get('WORDS_API_URL');
     this.wordsApiKey = this.configService.get('WORDS_API_KEY');
@@ -24,7 +26,32 @@ export class WordsService {
 
   async getWord(word: string) {
     const apiResponse = await this.getWordDetails(word);
-    return await this.transformWordResponse(apiResponse);
+
+    const dbWord = await this.database.word.findUnique({
+      where: { titleEng: word.trim() },
+      include: {
+        definitions: {
+          include: {
+            others: {
+              include: {
+                examples: true,
+              },
+            },
+          },
+        },
+        examples: true,
+        verbForms: true,
+      },
+    });
+
+    if (dbWord) {
+      return dbWord;
+    }
+
+    const wordDetails = await this.transformWordResponse(apiResponse);
+    wordDetails.titleEng = word;
+    await this.insertWordIfNotExists(wordDetails);
+    return wordDetails;
   }
 
   private async getWordDetails(word: string) {
@@ -37,6 +64,66 @@ export class WordsService {
       console.error('Error fetching word details:', error);
       throw new Error('Failed to fetch word details');
     }
+  }
+
+  async insertWordIfNotExists(wordDetails: WordDetails): Promise<void> {
+    const {
+      title,
+      transcription,
+      definitions,
+      usageFrequency,
+      synonyms,
+      examples,
+      verbforms,
+      anagrams,
+      titleEng,
+    } = wordDetails;
+
+    const result = await this.database.word.upsert({
+      where: { titleEng: titleEng }, // Unique field to check for existing word
+      update: {}, // No update needed if the word already exists
+      create: {
+        titleEng,
+        titleUz: title,
+        transcription,
+        usageFrequency,
+        synonyms,
+        anagrams,
+        definitions: {
+          create: definitions.map((def) => ({
+            typeEn: def.typeEn,
+            typeUz: def.typeUz,
+            meaning: def.meaning,
+            plural: def.plural,
+            others: {
+              create: def.others.map((other) => ({
+                meaning: other.meaning,
+                examples: {
+                  create: other.examples.map((example) => ({
+                    phrase: example.phrase,
+                    translation: example.translation,
+                  })),
+                },
+              })),
+            },
+          })),
+        },
+        examples: {
+          create: examples.map((example) => ({
+            phrase: example.phrase,
+            translation: example.translation,
+          })),
+        },
+        verbForms: {
+          create: verbforms.map((verbForm) => ({
+            tense: verbForm.tense,
+            content: verbForm.content,
+          })),
+        },
+      },
+    });
+
+    console.log('result ', result);
   }
 
   private generateRequestOptions(method: 'GET' | 'POST'): AxiosRequestConfig {
@@ -137,23 +224,25 @@ export class WordsService {
         );
 
         const others = await Promise.all(
-          (defs as any).slice(1).map(async (def) => ({
-            meaning: await this.translator.translate(
-              def.definition,
-              'en',
-              'uz',
-            ),
-            examples: await Promise.all(
-              (def.examples || []).map(async (example) => ({
-                phrase: example,
-                translation: await this.translator.translate(
-                  example,
-                  'en',
-                  'uz',
-                ),
-              })),
-            ),
-          })),
+          (defs as any)
+            .slice(1)
+            .map(async (def: { definition: string; examples: string[] }) => ({
+              meaning: await this.translator.translate(
+                def.definition,
+                'en',
+                'uz',
+              ),
+              examples: await Promise.all(
+                (def.examples || []).map(async (example: string) => ({
+                  phrase: example,
+                  translation: await this.translator.translate(
+                    example,
+                    'en',
+                    'uz',
+                  ),
+                })),
+              ),
+            })),
         );
 
         return {
