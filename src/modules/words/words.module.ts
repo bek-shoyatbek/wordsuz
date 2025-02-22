@@ -3,7 +3,7 @@ import { WordsService } from './words.service';
 import { WordsController } from './words.controller';
 import { ConfigService } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
-import { TranslatorsService } from 'src/modules/translators/translators.service';
+import { TranslatorsService } from '../translators/translators.service';
 
 @Module({
   imports: [
@@ -14,4 +14,4 @@ import { TranslatorsService } from 'src/modules/translators/translators.service'
   controllers: [WordsController],
   providers: [WordsService, ConfigService, TranslatorsService],
 })
-export class WordModule { }
+export class WordModule {}
