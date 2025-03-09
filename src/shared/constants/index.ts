@@ -1,2 +1,1 @@
-export * from './cache.constant';
-export * from './template.constant';
+export * from './template-keys.constant';
