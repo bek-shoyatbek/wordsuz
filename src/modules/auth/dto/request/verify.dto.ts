@@ -7,5 +7,5 @@ export class VerifyDto {
     @IsString()
     @MinLength(6)
     @MaxLength(6)
-    code: string;
+    confirmationCode: string;
 }   

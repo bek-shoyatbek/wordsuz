@@ -1,7 +1,7 @@
 import { AuthService } from "./auth.service";
 import { Controller, Post, Body } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { RegisterDto, VerifyDto } from "./dto/request";
+import { LoginDto, RegisterDto, VerifyDto } from "./dto/request";
 import { BaseResponse } from "src/shared/types";
 
 @ApiTags('Auth')
@@ -15,8 +15,8 @@ export class AuthController {
     @ApiResponse({ status: 400, description: 'Bad Request' })
     @Post('register')
     async register(@Body() body: RegisterDto): Promise<BaseResponse<{ email: string }>> {
-        await this.authService.sendConfirmationEmail(body.email);
-        return { message: 'User registered successfully', data: { email: body.email }, status: 201 };
+        await this.authService.register(body.email, body.password);
+        return { message: 'User registered successfully', data: { email: body.email } };
     }
 
     @ApiOperation({ summary: 'Verify confirmation code' })
@@ -25,7 +25,17 @@ export class AuthController {
     @ApiResponse({ status: 400, description: 'Bad Request' })
     @Post('verify')
     async verify(@Body() body: VerifyDto): Promise<BaseResponse<{ email: string }>> {
-        const email = await this.authService.verifyConfirmationCode(body.code);
-        return { message: 'Confirmation code verified successfully', data: { email }, status: 200 };
+        const email = await this.authService.verify(body.confirmationCode);
+        return { message: 'Confirmation code verified successfully', data: { email } };
+    }
+
+    @ApiOperation({ summary: 'Login a user' })
+    @ApiBody({ type: LoginDto, required: true })
+    @ApiResponse({ status: 200, description: 'User logged in successfully' })
+    @ApiResponse({ status: 400, description: 'Bad Request' })
+    @Post('login')
+    async login(@Body() body: LoginDto): Promise<BaseResponse<{ email: string }>> {
+        const user = await this.authService.login(body.email, body.password);
+        return { message: 'User logged in successfully', data: { email: user.email } };
     }
 }
