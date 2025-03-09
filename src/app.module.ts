@@ -9,18 +9,19 @@ import { TranslatorsModule } from './modules/translators/translators.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { CacheModule } from '@nestjs/cache-manager';
-import { CACHE_TTL } from './shared/constants';
+import { REDIS_OPTIONS, MAIL_OPTIONS } from './shared/configs';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
+    AuthModule,
     HttpModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    CacheModule.register({
-      isGlobal: true,
-      ttl: CACHE_TTL,
-    }),
+    CacheModule.registerAsync(REDIS_OPTIONS),
+    MailerModule.forRootAsync(MAIL_OPTIONS),
     PexelsModule,
     WordModule,
     TranslatorsModule,
@@ -32,4 +33,4 @@ import { CACHE_TTL } from './shared/constants';
   controllers: [AppController],
   providers: [AppService, Logger],
 })
-export class AppModule {}
+export class AppModule { }
