@@ -12,11 +12,13 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { REDIS_OPTIONS, MAIL_OPTIONS } from './shared/configs';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { AuthModule } from './modules/auth/auth.module';
+import { TemplatesModule } from './modules/templates/templates.module';
 
 @Module({
   imports: [
     AuthModule,
     HttpModule,
+    TemplatesModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
