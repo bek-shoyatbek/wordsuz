@@ -13,7 +13,12 @@ async function bootstrap() {
 
   const logger = app.get(Logger);
 
-  app.enableCors({ origin: '*' });
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
+    credentials: true,
+  });
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
