@@ -12,4 +12,8 @@ export class UsersService {
     async createUser(email: string, password: string) {
         return this.databaseService.user.create({ data: { email, password } });
     }
+
+    async findOne(id: string) {
+        return this.databaseService.user.findUnique({ where: { id } });
+    }
 }
