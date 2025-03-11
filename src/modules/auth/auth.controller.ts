@@ -4,7 +4,8 @@ import { ApiTags } from "@nestjs/swagger";
 import { LoginDto, RegisterDto, VerifyDto } from "./dto/request";
 import { BaseResponse } from "src/shared/types";
 import { AuthGuard } from "./guards/auth.guard";
-import { ApplyDocsForCurrentUser, ApplyDocsForLogin, ApplyDocsForRegister, ApplyDocsForVerify } from "./decorators";
+import { ApplyDocsForCurrentUser, ApplyDocsForLogin, ApplyDocsForRefreshToken, ApplyDocsForRegister, ApplyDocsForVerify } from "./decorators";
+import { RefreshTokenDto } from "./dto/request/refresh-token.dto";
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -27,9 +28,16 @@ export class AuthController {
 
     @ApplyDocsForLogin()
     @Post('login')
-    async login(@Body() body: LoginDto): Promise<BaseResponse<{ email: string, accessToken: string }>> {
-        const { email, accessToken } = await this.authService.login(body.email, body.password);
-        return { message: 'User logged in successfully', data: { email, accessToken } };
+    async login(@Body() body: LoginDto): Promise<BaseResponse<{ email: string, accessToken: string, refreshToken: string }>> {
+        const { email, accessToken, refreshToken } = await this.authService.login(body.email, body.password);
+        return { message: 'User logged in successfully', data: { email, accessToken, refreshToken } };
+    }
+
+    @ApplyDocsForRefreshToken()
+    @Post('refresh-token')
+    async refreshToken(@Body() body: RefreshTokenDto): Promise<BaseResponse<{ accessToken: string }>> {
+        const { accessToken } = await this.authService.refreshToken(body.refreshToken);
+        return { message: 'Refresh token refreshed successfully', data: { accessToken } };
     }
 
     @ApplyDocsForCurrentUser()

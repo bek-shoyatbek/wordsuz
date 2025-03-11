@@ -1,7 +1,7 @@
 import { applyDecorators } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { LoginDto, RegisterDto, VerifyDto } from "../dto";
-
+import { RefreshTokenDto } from "../dto/request/refresh-token.dto";
 export function ApplyDocsForRegister() {
     return applyDecorators(
         ApiOperation({ summary: 'Register a user' }),
@@ -26,6 +26,13 @@ export function ApplyDocsForLogin() {
         ApiBody({ type: LoginDto, required: true }),
         ApiResponse({ status: 200, description: 'User logged in successfully' }),
         ApiResponse({ status: 400, description: 'Bad Request' })
+    )
+}
+
+export function ApplyDocsForRefreshToken() {
+    return applyDecorators(
+        ApiOperation({ summary: 'Refresh token' }),
+        ApiBody({ type: RefreshTokenDto, required: true }),
     )
 }
 
