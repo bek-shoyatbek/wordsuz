@@ -21,7 +21,8 @@
     "db:generate": "npx prisma generate",
     "db:push": "npx prisma db push",
     "db:seed": "npx prisma db seed",
-    "db:deploy": "npx prisma migrate deploy"
+    "db:deploy": "npx prisma migrate deploy",
+    "db:reset": "npx prisma migrate reset"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",
