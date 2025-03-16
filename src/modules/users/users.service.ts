@@ -6,7 +6,7 @@ export class UsersService {
     constructor(private readonly databaseService: DatabaseService) { }
 
     async findByEmail(email: string) {
-        return this.databaseService.user.findUnique({ where: { email } });
+        return this.databaseService.user.findFirst({ where: { email } });
     }
 
     async createUser(email: string, password: string) {
