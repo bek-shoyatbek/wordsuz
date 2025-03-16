@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { lastValueFrom } from 'rxjs';
 import { WordApiResponse } from 'src/shared/types';
+import openGoogleTranslator from 'open-google-translator';
 
 @Injectable()
 export class TranslatorsService {
@@ -11,8 +11,7 @@ export class TranslatorsService {
   private readonly apiHost: string;
   private readonly apiUrl: string;
   private readonly maxRetries = 3;
-  private readonly timeout = 10000; // 10 seconds
-
+  private readonly timeout = 10000;
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
@@ -23,6 +22,22 @@ export class TranslatorsService {
   }
 
   async translate(
+    text: string,
+    source?: string,
+    target?: string,
+    retryCount?: number,
+  ) {
+    openGoogleTranslator.supportedLanguages();
+    const texts = [text];
+    const data = await openGoogleTranslator.TranslateLanguageData({
+      listOfWordsToTranslate: texts,
+      fromLanguage: 'en',
+      toLanguage: 'uz',
+    });
+    return data[0]?.translation;
+  }
+
+  async translateO(
     text: string,
     sourceLanguage: string,
     targetLanguage: string,
@@ -50,25 +65,32 @@ export class TranslatorsService {
     };
 
     try {
-      const response = await lastValueFrom(this.httpService.request(options));
+      const response = await this.httpService.axiosRef.request(options);
 
-      // Safer response handling
       if (response?.data?.data?.translations?.[0]?.translatedText) {
         return response.data.data.translations[0].translatedText;
       }
       throw new Error('Invalid translation response structure');
-
     } catch (error) {
+      console.log(error);
       this.logger.error(`Translation error: ${error.message}`);
 
-      // Retry logic
       if (retryCount < this.maxRetries) {
         this.logger.log(`Retrying translation attempt ${retryCount + 1}...`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
-        return this.translate(text, sourceLanguage, targetLanguage, retryCount + 1);
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * (retryCount + 1)),
+        );
+        return this.translate(
+          text,
+          sourceLanguage,
+          targetLanguage,
+          retryCount + 1,
+        );
       }
 
-      throw new Error(`Failed to translate text after ${this.maxRetries} attempts`);
+      throw new Error(
+        `Failed to translate text after ${this.maxRetries} attempts`,
+      );
     }
   }
 
@@ -104,7 +126,11 @@ export class TranslatorsService {
 
           const exampleTexts = limitedExamples.join('\n');
           try {
-            const translatedExamples = await this.translate(exampleTexts, 'en', 'uz');
+            const translatedExamples = await this.translate(
+              exampleTexts,
+              'en',
+              'uz',
+            );
             const translations = translatedExamples.split('\n');
 
             translations.forEach((translation, exIndex) => {
@@ -148,14 +174,12 @@ export class TranslatorsService {
         const value = valueParts.join(':'); // Handle colons in translated text
 
         if (key.length === 1) {
-          // Save previous translation if exists
           if (currentTranslation.definition) {
             if (currentExamples.length > 0) {
               currentTranslation.examples = [...currentExamples];
             }
             uzbekData.translations.push({ ...currentTranslation });
           }
-          // Start new translation
           currentTranslation = {
             definition: value,
             synonyms: [],
@@ -182,7 +206,6 @@ export class TranslatorsService {
         }
       });
 
-      // Add the last translation if exists
       if (currentTranslation.definition) {
         if (currentExamples.length > 0) {
           currentTranslation.examples = [...currentExamples];
@@ -194,6 +217,33 @@ export class TranslatorsService {
     } catch (error) {
       this.logger.error('Error parsing translated string:', error);
       throw new Error('Failed to parse translated string');
+    }
+  }
+
+  private async translateBatch(
+    texts: string[],
+    sourceLanguage: string,
+    targetLanguage: string,
+  ): Promise<string[]> {
+    const combinedText = texts.join('\n');
+    const translatedText = await this.safeTranslate(
+      combinedText,
+      sourceLanguage,
+      targetLanguage,
+    );
+    return translatedText.split('\n');
+  }
+
+  private async safeTranslate(
+    text: string,
+    sourceLanguage: string,
+    targetLanguage: string,
+  ): Promise<string> {
+    try {
+      return await this.translate(text, sourceLanguage, targetLanguage);
+    } catch (error) {
+      console.error(`Translation failed for text: ${text}`, error);
+      return text; // Fallback to the original text
     }
   }
 }

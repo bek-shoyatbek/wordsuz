@@ -9,8 +9,8 @@ datasource db {
 
 model User {
   id       String @id @default(uuid())
-  email    String
-  username String
+  email    String @unique
+  password String
 
   comments  Comment[]
   bookmarks Bookmark[]
@@ -35,7 +35,8 @@ model Bookmark {
 
 model Word {
   id             String       @id @default(uuid())
-  title          String       @unique
+  titleEng       String       @unique @map("title_eng")
+  titleUz        String       @map("title_uz")
   transcription  String?
   definitions    Definition[]
   usageFrequency Int?         @map("usage_frequency")

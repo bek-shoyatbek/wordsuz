@@ -1,10 +1,11 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosRequestConfig } from 'axios';
-import { lastValueFrom } from 'rxjs';
-import { TranslatorsService } from 'src/modules/translators/translators.service';
+import { TranslatorsService } from '../translators/translators.service';
 import { WordApiResponse } from 'src/shared/types';
+import { WordDetails } from './types';
+import { DatabaseService } from 'src/shared/database/database.service';
 
 @Injectable()
 export class WordsService {
@@ -16,6 +17,7 @@ export class WordsService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
     private readonly translator: TranslatorsService,
+    private readonly database: DatabaseService,
   ) {
     this.wordsApiURL = this.configService.get('WORDS_API_URL');
     this.wordsApiKey = this.configService.get('WORDS_API_KEY');
@@ -23,30 +25,105 @@ export class WordsService {
   }
 
   async getWord(word: string) {
-
     const apiResponse = await this.getWordDetails(word);
 
-    const toTranslate = await this.translator.prepareTranslationString(apiResponse);
+    const dbWord = await this.database.word.findUnique({
+      where: { titleEng: word.trim() },
+      include: {
+        definitions: {
+          include: {
+            others: {
+              include: {
+                examples: true,
+              },
+            },
+          },
+        },
+        examples: true,
+        verbForms: true,
+      },
+    });
 
-    const translatedString = await this.translator.translate(toTranslate, 'en', 'uz');
+    if (dbWord) {
+      return dbWord;
+    }
 
-    const uzbekData = this.translator.parseTranslatedString(translatedString);
-
-    return this.transformToFinalFormat(apiResponse, uzbekData);
+    const wordDetails = await this.transformWordResponse(apiResponse);
+    wordDetails.titleEng = word;
+    await this.insertWordIfNotExists(wordDetails);
+    return wordDetails;
   }
 
   private async getWordDetails(word: string) {
     const reqOptions = this.generateRequestOptions('GET');
     reqOptions.url = `${this.wordsApiURL}/${word}`;
     try {
-      const response = await lastValueFrom(
-        this.httpService.request(reqOptions),
-      );
+      const response = await this.httpService.axiosRef.request(reqOptions);
       return response.data;
     } catch (error) {
       console.error('Error fetching word details:', error);
       throw new Error('Failed to fetch word details');
     }
+  }
+
+  async insertWordIfNotExists(wordDetails: WordDetails): Promise<void> {
+    const {
+      title,
+      transcription,
+      definitions,
+      usageFrequency,
+      synonyms,
+      examples,
+      verbforms,
+      anagrams,
+      titleEng,
+    } = wordDetails;
+
+    const result = await this.database.word.upsert({
+      where: { titleEng: titleEng }, // Unique field to check for existing word
+      update: {}, // No update needed if the word already exists
+      create: {
+        titleEng,
+        titleUz: title,
+        transcription,
+        usageFrequency,
+        synonyms,
+        anagrams,
+        definitions: {
+          create: definitions.map((def) => ({
+            typeEn: def.typeEn,
+            typeUz: def.typeUz,
+            meaning: def.meaning,
+            plural: def.plural,
+            others: {
+              create: def.others.map((other) => ({
+                meaning: other.meaning,
+                examples: {
+                  create: other.examples.map((example) => ({
+                    phrase: example.phrase,
+                    translation: example.translation,
+                  })),
+                },
+              })),
+            },
+          })),
+        },
+        examples: {
+          create: examples.map((example) => ({
+            phrase: example.phrase,
+            translation: example.translation,
+          })),
+        },
+        verbForms: {
+          create: verbforms.map((verbForm) => ({
+            tense: verbForm.tense,
+            content: verbForm.content,
+          })),
+        },
+      },
+    });
+
+    console.log('result ', result);
   }
 
   private generateRequestOptions(method: 'GET' | 'POST'): AxiosRequestConfig {
@@ -59,62 +136,6 @@ export class WordsService {
       },
     };
     return options;
-  }
-
-  private transformToFinalFormat(apiResponse: WordApiResponse, uzbekData: any) {
-    const uniqueSynonyms = Array.from(new Set(
-      apiResponse.results?.flatMap(result => result.synonyms || []) || []
-    ));
-
-    const definitions = apiResponse.results?.map((result, index) => {
-      const uzTranslation = uzbekData.translations[index];
-
-      return {
-        typeEn: result.partOfSpeech,
-        typeUz: uzTranslation?.partOfSpeech || '',
-        meaning: uzTranslation?.definition || '',
-        plural: '',
-        others: result.examples?.map((example, i) => ({
-          meaning: uzTranslation?.examples?.[i]?.translated || '',
-          examples: [{
-            phrase: example,
-            translation: uzTranslation?.examples?.[i]?.translated || ''
-          }]
-        })) || []
-      };
-    }) || [];
-
-    const examples = apiResponse.results?.flatMap(result =>
-      (result.examples || []).map(example => ({
-        phrase: example,
-        translation: ''
-      }))
-    ) || [];
-
-    examples.forEach((example, index) => {
-      const foundTranslation = uzbekData.translations
-        .flatMap(t => t.examples || [])
-        .find(e => e?.original === example?.phrase);
-
-      if (foundTranslation) {
-        example.translation = foundTranslation?.translated;
-      }
-    });
-
-    const hasVerbDefinition = apiResponse.results?.some(
-      result => result?.partOfSpeech === 'verb'
-    );
-
-    return {
-      title: apiResponse.word,
-      transcription: apiResponse.pronunciation?.all || '',
-      definitions,
-      usageFrequency: Math.round((apiResponse.frequency || 0) * 100),
-      synonyms: uniqueSynonyms,
-      examples,
-      verbforms: hasVerbDefinition ? this.generateVerbForms(apiResponse.word) : [],
-      anagrams: [] // To be implemented if needed
-    };
   }
 
   private generateVerbForms(word: string) {
@@ -178,4 +199,96 @@ export class WordsService {
     ];
   }
 
+  private async transformWordResponse(
+    apiResponse: WordApiResponse,
+  ): Promise<WordDetails> {
+    const { word, results, pronunciation, frequency } = apiResponse;
+
+    const translatedWord = await this.translator.translate(word, 'en', 'uz');
+
+    const definitionsByType = results.reduce((acc, curr) => {
+      if (!acc[curr.partOfSpeech]) {
+        acc[curr.partOfSpeech] = [];
+      }
+      acc[curr.partOfSpeech].push(curr);
+      return acc;
+    }, {});
+
+    const translatedDefinitions = await Promise.all(
+      Object.entries(definitionsByType).map(async ([type, defs]) => {
+        const typeUz = await this.translator.translate(type, 'en', 'uz');
+        const meaningUz = await this.translator.translate(
+          defs[0].definition,
+          'en',
+          'uz',
+        );
+
+        const others = await Promise.all(
+          (defs as any)
+            .slice(1)
+            .map(async (def: { definition: string; examples: string[] }) => ({
+              meaning: await this.translator.translate(
+                def.definition,
+                'en',
+                'uz',
+              ),
+              examples: await Promise.all(
+                (def.examples || []).map(async (example: string) => ({
+                  phrase: example,
+                  translation: await this.translator.translate(
+                    example,
+                    'en',
+                    'uz',
+                  ),
+                })),
+              ),
+            })),
+        );
+
+        return {
+          typeEn: type,
+          typeUz,
+          meaning: meaningUz,
+          plural: '', // Add plural translation if needed
+          others,
+        };
+      }),
+    );
+
+    const translatedExamples = await Promise.all(
+      results.flatMap((result) =>
+        (result.examples || []).map(async (example) => ({
+          phrase: example,
+          translation: await this.translator.translate(example, 'en', 'uz'),
+        })),
+      ),
+    );
+
+    const allSynonyms = Array.from(
+      new Set(results.flatMap((result) => result.synonyms || [])),
+    );
+    const translatedSynonyms = await Promise.all(
+      allSynonyms.map(
+        async (synonym) => await this.translator.translate(synonym, 'en', 'uz'),
+      ),
+    );
+
+    const hasVerbDefinition = results.some(
+      (result) => result.partOfSpeech === 'verb',
+    );
+    const verbForms = hasVerbDefinition ? this.generateVerbForms(word) : [];
+
+    const transformedResponse: WordDetails = {
+      title: translatedWord,
+      transcription: pronunciation?.all || '',
+      definitions: translatedDefinitions,
+      usageFrequency: Math.round(frequency * 100) || 0,
+      synonyms: translatedSynonyms,
+      examples: translatedExamples,
+      verbforms: verbForms,
+      anagrams: [], // Add anagram translation if needed
+    };
+
+    return transformedResponse;
+  }
 }
