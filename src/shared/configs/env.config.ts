@@ -30,4 +30,10 @@ export const envConfig = cleanEnv(process.env, {
     JWT_ACCESS_TOKEN_EXPIRES_IN: str(),
     JWT_REFRESH_TOKEN_SECRET: str(),
     JWT_REFRESH_TOKEN_EXPIRES_IN: str(),
+
+    JWT_ADMIN_ACCESS_TOKEN_SECRET: str(),
+    JWT_ADMIN_ACCESS_TOKEN_EXPIRES_IN: str(),
+
+    ADMIN_EMAIL: str(),
+    ADMIN_PASSWORD: str(),
 })
