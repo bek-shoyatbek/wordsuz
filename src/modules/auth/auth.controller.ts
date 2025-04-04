@@ -12,6 +12,13 @@ import { RefreshTokenDto } from "./dto/request/refresh-token.dto";
 export class AuthController {
     constructor(private readonly authService: AuthService) { }
 
+    @ApplyDocsForLogin()
+    @Post('/admin-login')
+    async adminLogin(@Body() body: LoginDto): Promise<BaseResponse<{ email: string, accessToken: string }>> {
+        const { email, accessToken } = await this.authService.loginAsAdmin(body.email, body.password);
+        return { message: 'Admin logged in successfully', data: { email, accessToken } };
+    }
+
     @ApplyDocsForRegister()
     @Post('register')
     async register(@Body() body: RegisterDto): Promise<BaseResponse<{ email: string }>> {

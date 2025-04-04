@@ -21,6 +21,21 @@ export class AuthService {
         private readonly configService: ConfigService
     ) { }
 
+    async loginAsAdmin(email: string, password: string) {
+        const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
+        const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
+
+        const isAdmin = email === adminEmail && password === adminPassword;
+        if (!isAdmin) {
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
+        return {
+            email,
+            accessToken: await this.jwtService.signAsync({ email }, { secret: this.configService.get<string>('JWT_ADMIN_ACCESS_TOKEN_SECRET') })
+        }
+    }
+
     async register(email: string, password: string) {
         const user = await this.userService.findByEmail(email);
         if (user) {
