@@ -13,6 +13,7 @@ import { REDIS_OPTIONS, MAIL_OPTIONS } from './shared/configs';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { AuthModule } from './modules/auth/auth.module';
 import { TemplatesModule } from './modules/templates/templates.module';
+import { CommentsModule } from './modules/comments/comments.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { TemplatesModule } from './modules/templates/templates.module';
       rootPath: join(process.cwd(), 'frontend'),
       exclude: ['api/*'],
     }),
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, Logger],
