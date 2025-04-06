@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosRequestConfig } from 'axios';
 import { TranslatorsService } from '../translators/translators.service';
@@ -22,6 +22,31 @@ export class WordsService {
     this.wordsApiURL = this.configService.get('WORDS_API_URL');
     this.wordsApiKey = this.configService.get('WORDS_API_KEY');
     this.wordsApiHost = this.configService.get('WORDS_API_HOST');
+  }
+
+  async getWordById(wordId: string) {
+    return this.database.word.findUnique({
+      where: {
+        id: wordId,
+      },
+    });
+  }
+
+  async getSimilarWordsFromDB(word: string) {
+    return this.database.word.findMany({
+      where: {
+        titleEng: {
+          contains: word,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        id: true,
+        titleEng: true,
+        titleUz: true,
+        transcription: true,
+      },
+    });
   }
 
   async getWord(word: string) {
@@ -80,7 +105,7 @@ export class WordsService {
     } = wordDetails;
 
     const result = await this.database.word.upsert({
-      where: { titleEng: titleEng }, // Unique field to check for existing word
+      where: { titleEng: titleEng.toLowerCase() }, // Unique field to check for existing word
       update: {}, // No update needed if the word already exists
       create: {
         titleEng,
