@@ -6,6 +6,13 @@ import { TranslatorsService } from '../translators/translators.service';
 import { WordApiResponse } from 'src/shared/types';
 import { WordDetails } from './types';
 import { DatabaseService } from 'src/shared/database/database.service';
+import { UpdateWordDto } from './dto/update-word.dto';
+import { UpdateDefinitionDto } from './dto/update-definition.dto';
+import { UpdateExampleDto } from './dto/update-example.dto';
+import { UpdateVerbFormDto } from './dto/update-verb.dto';
+import { CreateDefinitionDto } from './dto/create-definition.dto';
+import { CreateExampleDto } from './dto/create-example.dto';
+import { CreateVerbFormDto } from './dto/create-verb-form.dto';
 
 @Injectable()
 export class WordsService {
@@ -104,7 +111,7 @@ export class WordsService {
       titleEng,
     } = wordDetails;
 
-    const result = await this.database.word.upsert({
+    await this.database.word.upsert({
       where: { titleEng: titleEng.toLowerCase() }, // Unique field to check for existing word
       update: {}, // No update needed if the word already exists
       create: {
@@ -147,8 +154,6 @@ export class WordsService {
         },
       },
     });
-
-    console.log('result ', result);
   }
 
   private generateRequestOptions(method: 'GET' | 'POST'): AxiosRequestConfig {
@@ -315,5 +320,60 @@ export class WordsService {
     };
 
     return transformedResponse;
+  }
+
+  async updateWord(wordId: string, data: UpdateWordDto) {
+    return this.database.word.update({
+      where: { id: wordId },
+      data,
+    });
+  }
+
+  async updateDefinition(definitionId: string, data: UpdateDefinitionDto) {
+    return this.database.definition.update({
+      where: { id: definitionId },
+      data,
+    });
+  }
+
+  async updateExample(exampleId: string, data: UpdateExampleDto) {
+    return this.database.example.update({
+      where: { id: exampleId },
+      data,
+    });
+  }
+
+  async updateVerbForm(verbFormId: string, data: UpdateVerbFormDto) {
+    return this.database.verbForm.update({
+      where: { id: verbFormId },
+      data,
+    });
+  }
+
+  async addDefinition(wordId: string, dto: CreateDefinitionDto) {
+    return this.database.definition.create({
+      data: {
+        ...dto,
+        wordId,
+      },
+    });
+  }
+
+  async addExample(wordId: string, dto: CreateExampleDto) {
+    return this.database.example.create({
+      data: {
+        ...dto,
+        wordId,
+      },
+    });
+  }
+
+  async addVerbForm(wordId: string, dto: CreateVerbFormDto) {
+    return this.database.verbForm.create({
+      data: {
+        ...dto,
+        wordId,
+      },
+    });
   }
 }
