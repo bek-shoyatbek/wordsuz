@@ -32,7 +32,8 @@ export class WordService {
       const result: WordDetails = response.data;
 
       // Prepare a single string for translation
-      const toTranslate = await this.translator.prepareTranslationString(result);
+      const toTranslate =
+        await this.translator.prepareTranslationString(result);
       // Translate the entire string at once
       const translatedString = await this.translator.translate(
         toTranslate,
@@ -96,7 +97,7 @@ export class WordService {
   }
 
   private generateRequestOptions(method: 'GET' | 'POST'): AxiosRequestConfig {
-    const options: AxiosRequestConfig = {
+    return {
       method: method,
       url: '',
       headers: {
@@ -104,7 +105,5 @@ export class WordService {
         'x-rapidapi-host': this.wordsApiHost,
       },
     };
-    return options;
   }
-
 }
