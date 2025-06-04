@@ -1,3 +1,4 @@
+// auth.service.ts - Fixed version
 import {
   BadRequestException,
   Inject,
@@ -35,17 +36,23 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    const adminPayload: JwtPayload = {
+      email,
+      role: UserRole.Admin,
+      id: 'admin',
+    };
+
     return {
       email,
       accessToken: await this.jwtService.signAsync(
         {
-          email,
-          role: UserRole.Admin,
+          sub: adminPayload.email, // Use 'sub' consistently
+          role: adminPayload.role,
+          id: adminPayload.id,
         },
         {
-          secret: this.configService.get<string>(
-            'JWT_ADMIN_ACCESS_TOKEN_SECRET',
-          ),
+          secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET'), // Use same secret as regular users
+          expiresIn: this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN'),
         },
       ),
     };
@@ -128,6 +135,7 @@ export class AuthService {
     if (!decoded) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+
     const user = await this.userService.findByEmail(decoded.sub);
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -135,6 +143,7 @@ export class AuthService {
 
     const tokens = await this.getTokens({
       email: user.email,
+      role: UserRole.User,
       id: user.id,
     });
     return tokens;
@@ -157,9 +166,7 @@ export class AuthService {
         id: payload.id,
       },
       {
-        expiresIn: this.configService.get<string>(
-          'JWT_ACCESS_TOKEN_EXPIRES_IN',
-        ),
+        expiresIn: this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN'),
         secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
       },
     );
@@ -173,9 +180,7 @@ export class AuthService {
         id: payload.id,
       },
       {
-        expiresIn: this.configService.get<string>(
-          'JWT_REFRESH_TOKEN_EXPIRES_IN',
-        ),
+        expiresIn: this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN'),
         secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
       },
     );

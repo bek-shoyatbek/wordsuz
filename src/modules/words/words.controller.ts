@@ -5,10 +5,10 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
-  Post,
-} from '@nestjs/common';
+  Post, UseGuards
+} from "@nestjs/common";
 import { WordsService } from './words.service';
-import { ApiBody, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiParam, ApiTags } from "@nestjs/swagger";
 import { wordDetailsExample } from './examples';
 import { UpdateWordDto } from './dto/update-word.dto';
 import { UpdateDefinitionDto } from './dto/update-definition.dto';
@@ -17,6 +17,10 @@ import { UpdateVerbFormDto } from './dto/update-verb.dto';
 import { CreateDefinitionDto } from './dto/create-definition.dto';
 import { CreateExampleDto } from './dto/create-example.dto';
 import { CreateVerbFormDto } from './dto/create-verb-form.dto';
+import { RolesGuard } from "../auth/guards/roles.guard";
+import { AuthGuard } from "@nestjs/passport";
+import { Roles } from "../auth/decorators/roles.decorator";
+import { UserRole } from "../auth/types";
 
 @ApiTags('Words')
 @Controller('words')
@@ -58,6 +62,9 @@ export class WordsController {
   }
 
   @Post(':wordId/definitions')
+  @UseGuards(AuthGuard('jwt-access'), RolesGuard)
+  @Roles(UserRole.Admin)
+  @ApiBearerAuth()
   @ApiParam({ name: 'wordId', type: 'string', description: 'UUID of the word' })
   @ApiBody({
     schema: {
