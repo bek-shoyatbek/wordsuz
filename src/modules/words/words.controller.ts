@@ -85,6 +85,8 @@ export class WordsController {
   }
 
   @Post(':wordId/examples')
+  @UseGuards(AuthGuard('jwt-access'), RolesGuard)
+  @Roles(UserRole.Admin)
   @ApiParam({ name: 'wordId', type: 'string', description: 'UUID of the word' })
   @ApiBody({
     schema: {
@@ -104,6 +106,8 @@ export class WordsController {
   }
 
   @Post(':wordId/verb-forms')
+  @UseGuards(AuthGuard('jwt-access'), RolesGuard)
+  @Roles(UserRole.Admin)
   @ApiParam({ name: 'wordId', type: 'string', description: 'UUID of the word' })
   @ApiBody({
     schema: {
@@ -129,6 +133,8 @@ export class WordsController {
   }
 
   @Patch(':wordId')
+  @UseGuards(AuthGuard('jwt-access'), RolesGuard)
+  @Roles(UserRole.Admin)
   @ApiParam({
     name: 'wordId',
     type: 'string',
@@ -154,6 +160,8 @@ export class WordsController {
   }
 
   @Patch(':wordId/definitions/:definitionId')
+  @UseGuards(AuthGuard('jwt-access'), RolesGuard)
+  @Roles(UserRole.Admin)
   @ApiParam({ name: 'wordId', type: 'string', description: 'UUID of the word' })
   @ApiParam({
     name: 'definitionId',
@@ -179,6 +187,8 @@ export class WordsController {
   }
 
   @Patch(':wordId/examples/:exampleId')
+  @UseGuards(AuthGuard('jwt-access'), RolesGuard)
+  @Roles(UserRole.Admin)
   @ApiParam({ name: 'wordId', type: 'string', description: 'UUID of the word' })
   @ApiParam({
     name: 'exampleId',
@@ -203,6 +213,8 @@ export class WordsController {
   }
 
   @Patch(':wordId/verb-forms/:verbFormId')
+  @UseGuards(AuthGuard('jwt-access'), RolesGuard)
+  @Roles(UserRole.Admin)
   @ApiParam({ name: 'wordId', type: 'string', description: 'UUID of the word' })
   @ApiParam({
     name: 'verbFormId',
