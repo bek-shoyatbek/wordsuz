@@ -1,146 +1,183 @@
-import { Injectable, BadRequestException, Inject, UnauthorizedException } from "@nestjs/common";
-import { MailService } from "../mail/mail.service";
-import { CACHE_TTL } from "src/shared/configs";
-import { Cache } from "cache-manager";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { CONFIRMATION_TEMPLATE } from "src/shared/constants";
-import { getVerificationCode } from "src/shared/utils/generators";
-import { hashPassword, comparePassword } from "src/shared/utils/hash";
-import { UsersService } from "../users/users.service";
-import { JwtService } from "@nestjs/jwt";
-import { JwtPayload } from "./types";
-import { ConfigService } from "@nestjs/config";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { MailService } from '../mail/mail.service';
+import { CACHE_TTL } from 'src/shared/configs';
+import { Cache } from 'cache-manager';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { CONFIRMATION_TEMPLATE } from 'src/shared/constants';
+import { getVerificationCode } from 'src/shared/utils/generators';
+import { comparePassword, hashPassword } from 'src/shared/utils/hash';
+import { UsersService } from '../users/users.service';
+import { JwtService } from '@nestjs/jwt';
+import { JwtPayload, UserRole } from './types';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
-    constructor(
-        private readonly mailService: MailService,
-        @Inject(CACHE_MANAGER) private cacheManager: Cache,
-        private readonly userService: UsersService,
-        private readonly jwtService: JwtService,
-        private readonly configService: ConfigService
-    ) { }
+  constructor(
+    private readonly mailService: MailService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly userService: UsersService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
 
-    async loginAsAdmin(email: string, password: string) {
-        const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
-        const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
+  async loginAsAdmin(email: string, password: string) {
+    const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
+    const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
 
-        const isAdmin = email === adminEmail && password === adminPassword;
-        if (!isAdmin) {
-            throw new UnauthorizedException('Invalid credentials');
-        }
-
-        return {
-            email,
-            accessToken: await this.jwtService.signAsync({ email }, { secret: this.configService.get<string>('JWT_ADMIN_ACCESS_TOKEN_SECRET') })
-        }
+    const isAdmin = email === adminEmail && password === adminPassword;
+    if (!isAdmin) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    async register(email: string, password: string) {
-        const user = await this.userService.findByEmail(email);
-        if (user) {
-            throw new BadRequestException('User already exists');
-        }
+    return {
+      email,
+      accessToken: await this.jwtService.signAsync(
+        {
+          email,
+          role: UserRole.Admin,
+        },
+        {
+          secret: this.configService.get<string>(
+            'JWT_ADMIN_ACCESS_TOKEN_SECRET',
+          ),
+        },
+      ),
+    };
+  }
 
-        const code = getVerificationCode();
-        const hashedPassword = await hashPassword(password);
-        const newUser = { email, password: hashedPassword };
-
-        const cacheKey = `verification:${code}`;
-        await this.cacheManager.set(cacheKey, JSON.stringify(newUser), CACHE_TTL);
-
-        return await this.mailService.sendTemplateMail(
-            email,
-            'Tasdiqlash kodini kiriting',
-            CONFIRMATION_TEMPLATE,
-            { email, confirmationCode: code }
-        );
+  async register(email: string, password: string) {
+    const user = await this.userService.findByEmail(email);
+    if (user) {
+      throw new BadRequestException('User already exists');
     }
 
-    async verify(code: string) {
-        const cacheKey = `verification:${code}`;
-        const userCredentials = await this.cacheManager.get<string>(cacheKey);
+    const code = getVerificationCode();
+    const hashedPassword = await hashPassword(password);
+    const newUser = { email, password: hashedPassword };
 
-        if (!userCredentials) {
-            throw new BadRequestException('Invalid or expired confirmation code');
-        }
+    const cacheKey = `verification:${code}`;
+    await this.cacheManager.set(cacheKey, JSON.stringify(newUser), CACHE_TTL);
 
-        await this.cacheManager.del(cacheKey);
-        const userData = JSON.parse(userCredentials);
+    return await this.mailService.sendTemplateMail(
+      email,
+      'Tasdiqlash kodini kiriting',
+      CONFIRMATION_TEMPLATE,
+      { email, confirmationCode: code },
+    );
+  }
 
-        const user = await this.userService.createUser(userData.email, userData.password);
-        const tokens = await this.getTokens({ email: user.email, id: user.id });
+  async verify(code: string) {
+    const cacheKey = `verification:${code}`;
+    const userCredentials = await this.cacheManager.get<string>(cacheKey);
 
-        return {
-            email: user.email,
-            ...tokens
-        };
+    if (!userCredentials) {
+      throw new BadRequestException('Invalid or expired confirmation code');
     }
 
-    async login(email: string, password: string) {
-        const user = await this.userService.findByEmail(email);
-        if (!user) {
-            throw new UnauthorizedException('Invalid credentials');
-        }
+    await this.cacheManager.del(cacheKey);
+    const userData = JSON.parse(userCredentials);
 
-        const isPasswordValid = await comparePassword(password, user.password);
-        if (!isPasswordValid) {
-            throw new UnauthorizedException('Invalid credentials');
-        }
+    const user = await this.userService.createUser(
+      userData.email,
+      userData.password,
+    );
+    const tokens = await this.getTokens({
+      email: user.email,
+      role: UserRole.User,
+      id: user.id,
+    });
 
-        const tokens = await this.getTokens({ email: user.email, id: user.id });
-        return {
-            email: user.email,
-            ...tokens
-        };
+    return {
+      email: user.email,
+      ...tokens,
+    };
+  }
+
+  async login(email: string, password: string) {
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    async refreshToken(refreshToken: string) {
-        const decoded = this.jwtService.verify(refreshToken, { secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET') });
-        if (!decoded) {
-            throw new UnauthorizedException('Invalid refresh token');
-        }
-        const user = await this.userService.findByEmail(decoded.sub);
-        if (!user) {
-            throw new UnauthorizedException('User not found');
-        }
-
-        const tokens = await this.getTokens({ email: user.email, id: user.id });
-        return tokens;
+    const isPasswordValid = await comparePassword(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    private async getTokens(payload: JwtPayload) {
-        const [accessToken, refreshToken] = await Promise.all([
-            this.getAccessToken(payload),
-            this.getRefreshToken(payload),
-        ]);
+    const tokens = await this.getTokens({
+      email: user.email,
+      role: UserRole.User,
+      id: user.id,
+    });
+    return {
+      email: user.email,
+      ...tokens,
+    };
+  }
 
-        return { accessToken, refreshToken };
+  async refreshToken(refreshToken: string) {
+    const decoded = this.jwtService.verify(refreshToken, {
+      secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
+    });
+    if (!decoded) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    const user = await this.userService.findByEmail(decoded.sub);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    private async getAccessToken(payload: JwtPayload) {
-        return this.jwtService.signAsync(
-            {
-                sub: payload.email,
-                id: payload.id
-            },
-            {
-                expiresIn: this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN'),
-                secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET')
-            }
-        );
-    }
+    const tokens = await this.getTokens({
+      email: user.email,
+      id: user.id,
+    });
+    return tokens;
+  }
 
-    private async getRefreshToken(payload: JwtPayload) {
-        return this.jwtService.signAsync(
-            {
-                sub: payload.email,
-                id: payload.id
-            },
-            {
-                expiresIn: this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN'),
-                secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET')
-            }
-        );
-    }
+  private async getTokens(payload: JwtPayload) {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.getAccessToken(payload),
+      this.getRefreshToken(payload),
+    ]);
+
+    return { accessToken, refreshToken };
+  }
+
+  private async getAccessToken(payload: JwtPayload) {
+    return this.jwtService.signAsync(
+      {
+        sub: payload.email,
+        role: payload.role,
+        id: payload.id,
+      },
+      {
+        expiresIn: this.configService.get<string>(
+          'JWT_ACCESS_TOKEN_EXPIRES_IN',
+        ),
+        secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
+      },
+    );
+  }
+
+  private async getRefreshToken(payload: JwtPayload) {
+    return this.jwtService.signAsync(
+      {
+        sub: payload.email,
+        role: payload.role,
+        id: payload.id,
+      },
+      {
+        expiresIn: this.configService.get<string>(
+          'JWT_REFRESH_TOKEN_EXPIRES_IN',
+        ),
+        secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
+      },
+    );
+  }
 }

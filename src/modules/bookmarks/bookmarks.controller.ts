@@ -10,12 +10,12 @@ import {
 } from '@nestjs/common';
 import { BookmarksService } from './bookmarks.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
-import { RequestWithUser } from '../../shared/types';
 import {
   ApplyDocsForCreateBookmark,
   ApplyDocsForDeleteBookmark,
   ApplyDocsForGetBookmarks,
 } from './decorators';
+import { RequestWithUser } from "../../shared/types/request-with-user.type";
 
 @Controller('bookmarks')
 export class BookmarksController {
