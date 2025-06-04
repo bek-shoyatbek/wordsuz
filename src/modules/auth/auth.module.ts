@@ -8,6 +8,7 @@ import { JWT_OPTIONS } from 'src/shared/configs';
 import { AccessTokenStrategy, RefreshTokenStrategy } from './strategies';
 import { ConfigModule } from '@nestjs/config';
 import { AuthGuard } from './guards/auth.guard';
+import { RolesGuard } from "./guards/roles.guard";
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { AuthGuard } from './guards/auth.guard';
     AccessTokenStrategy,
     RefreshTokenStrategy,
     AuthGuard,
+    RolesGuard
   ],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, RolesGuard],
 })
 export class AuthModule {}

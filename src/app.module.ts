@@ -14,6 +14,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { AuthModule } from './modules/auth/auth.module';
 import { TemplatesModule } from './modules/templates/templates.module';
 import { CommentsModule } from './modules/comments/comments.module';
+import { BookmarksModule } from "./modules/bookmarks/bookmarks.module";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { CommentsModule } from './modules/comments/comments.module';
       exclude: ['api/*'],
     }),
     CommentsModule,
+    BookmarksModule
   ],
   controllers: [AppController],
   providers: [AppService, Logger],
